@@ -56,9 +56,7 @@ Three small pieces:
 
 2. **A reporter.** `audit-stale-tools.sh` reads the log, asks Claude Code
    which skills and MCPs are currently installed, and classifies each as
-   *used*, *stale* (30+ days quiet), or *never used*. It also scans
-   `~/.claude/settings.json` for **broken hooks** — entries whose script
-   file no longer exists — and flags them in the same report.
+   *used*, *stale* (30+ days quiet), or *never used*.
 
 3. **A nudge.** On each new Claude session, `stale-tools-alert.sh` checks
    the report. If anything is stale, it drops a one-line note into Claude's
