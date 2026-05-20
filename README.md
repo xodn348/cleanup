@@ -4,56 +4,20 @@ A small tool that watches which Claude Code skills and MCPs you actually use,
 and reminds you to clean up the ones you don't. It never deletes anything on
 its own.
 
-## Why
+## Why I built this
 
-After a few months of using Claude Code, most people end up with dozens of
-skills and MCP servers from one-off experiments. They clutter the menus and
-slow Claude down, but nobody remembers which ones are still useful. cleanup
-gives you that signal.
+Claude Code got slow. Not the model — the *session*. After a few months of
+installing skills, MCP servers, and plugins from blog posts and one-off
+experiments, every new session was carrying around ~60 skills and a handful
+of MCPs I no longer used. Each one of them shows up in Claude's system
+prompt at startup, eats context, and clutters the tool-selection menu.
 
-## How it works
+The natural fix — "just remove the ones you don't use" — never happens
+because nobody remembers *which* are still useful. cleanup gives you that
+signal: it watches what you actually call, and at most once a week it tells
+you which tools have gone quiet for over a month. You decide what to keep.
 
-```
-every tool call ──► cleanup-logger.sh ──► events.ndjson
-                                                │
-                              ┌─────────────────┴─────────────────┐
-                              ▼                                   ▼
-                     audit-stale-tools.sh                 stale-tools-alert.sh
-                     (builds report)                      (nudges Claude on
-                                                          new sessions)
-                                                                  │
-                                                                  ▼
-                                                          you run /cleanup
-                                                          and decide what
-                                                          to archive
-```
-
-Three pieces:
-
-1. **A logger.** Every time Claude calls a tool (a skill, an MCP, anything),
-   a small script writes one line to a log file. That's the data.
-
-2. **A reporter.** A second script reads the log, asks Claude Code which
-   skills and MCPs are currently installed, and classifies each as *used*,
-   *stale* (30+ days quiet), or *never used*.
-
-3. **A nudge.** On each new Claude session, a third script checks the
-   report. If anything is stale, it drops a one-line note into Claude's
-   context: *"these tools haven't been used in 30+ days — run /cleanup if
-   you want to review them."*
-
-The `/cleanup` skill then walks you through the list one entry at a time.
-Skills are moved to an `.archive/` folder (reversible). MCPs are removed
-with `claude mcp remove`. Nothing happens without you saying yes.
-
-## Two safety rules
-
-- **30-day grace period.** Right after install, the log is empty, so
-  everything looks unused. The nudge stays silent until you've actually
-  been using Claude long enough that "never used" means something.
-- **7-day cooldown.** At most one reminder per week. No nagging.
-
-## Install
+## Quick start
 
 ```bash
 git clone https://github.com/xodn348/cleanup.git ~/code/cleanup
@@ -78,18 +42,58 @@ Add these two hooks to `~/.claude/settings.json`:
 }
 ```
 
-That's it. Start a new Claude Code session and the logger begins collecting.
-
-## Using it
-
-Just keep working in Claude Code normally. After 30 days, if anything is
-stale, Claude will mention it at the start of a session and suggest
-`/cleanup`. You can also run it manually:
+Start a new Claude Code session — that's it. After 30 days of normal use,
+Claude will start surfacing stale tools at the top of new sessions and
+suggest `/cleanup`. You can also run it manually any time:
 
 ```bash
 bash ~/code/cleanup/audit-stale-tools.sh
 cat ~/code/cleanup/data/stale-tools.md
 ```
+
+## Architecture
+
+```
+every tool call ──► cleanup-logger.sh ──► events.ndjson
+                                                │
+                              ┌─────────────────┴─────────────────┐
+                              ▼                                   ▼
+                     audit-stale-tools.sh                 stale-tools-alert.sh
+                     (builds report)                      (nudges Claude on
+                                                          new sessions)
+                                                                  │
+                                                                  ▼
+                                                          you run /cleanup
+                                                          and decide what
+                                                          to archive
+```
+
+## How it works
+
+Three small pieces:
+
+1. **A logger.** Every time Claude calls a tool (a skill, an MCP, anything),
+   `cleanup-logger.sh` writes one line to a log file. That's the data.
+
+2. **A reporter.** `audit-stale-tools.sh` reads the log, asks Claude Code
+   which skills and MCPs are currently installed, and classifies each as
+   *used*, *stale* (30+ days quiet), or *never used*.
+
+3. **A nudge.** On each new Claude session, `stale-tools-alert.sh` checks
+   the report. If anything is stale, it drops a one-line note into Claude's
+   context: *"these tools haven't been used in 30+ days — run /cleanup if
+   you want to review them."*
+
+The `/cleanup` skill then walks you through the list one entry at a time.
+Skills get moved to an `.archive/` folder (reversible). MCPs are removed
+with `claude mcp remove`. Nothing happens without you saying yes.
+
+Two safety rules:
+
+- **30-day grace period.** Right after install, the log is empty, so
+  everything looks unused. The nudge stays silent until tracking has been
+  running long enough that "never used" means something.
+- **7-day cooldown.** At most one reminder per week. No nagging.
 
 ## Configuration
 
