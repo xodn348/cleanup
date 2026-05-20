@@ -23,8 +23,10 @@ description: Use when asked to "cleanup", "find unused tools", "list stale skill
 2. Read `~/code/cleanup/data/stale-tools.md` and show the stale list grouped by kind.
 3. Ask the user which entries to act on (keep / disable / remove).
 4. For each removal:
-   - Skill → `mv ~/.claude/skills/<name> ~/.claude/skills/.archive/<name>-$(date +%Y%m%d)`
-   - MCP → `claude mcp remove <name>`
+   - **Skill** → `mv ~/.claude/skills/<name> ~/.claude/skills/.archive/<name>-$(date +%Y%m%d)`
+   - **MCP** → `claude mcp remove <name>` (try `-s user` and `-s local` if scope is ambiguous)
+   - **Broken hook** (kind=hook, status=broken; the referenced script no longer exists):
+     edit `~/.claude/settings.json` and remove the dead entry. Always confirm before editing settings.
 5. Re-run with `--quiet` so the next session sees a fresh snapshot.
 
 ## Notes

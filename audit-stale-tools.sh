@@ -77,6 +77,33 @@ if [[ -d "$HOME/.claude/skills" ]]; then
   done
 fi
 
+# 3b. Detect broken hooks in ~/.claude/settings.json
+#     A hook is "broken" if its `command` references a file path that no longer exists.
+#     We list them as kind=hook so they show up in the same report.
+HOOKS_TMP="$(mktemp)"
+trap 'rm -f "$USAGE_TMP" "$MCP_TMP" "$SKILLS_TMP" "$ENTRIES_TMP" "$HOOKS_TMP"' EXIT
+SETTINGS_PATH="$HOME/.claude/settings.json"
+[[ -L "$SETTINGS_PATH" ]] && SETTINGS_PATH="$(readlink "$SETTINGS_PATH")"
+if [[ -f "$SETTINGS_PATH" ]]; then
+  # Extract every hook's (event, command) pair.
+  jq -r '
+    .hooks // {} | to_entries[] |
+    .key as $event |
+    (.value // []) | .[]? | (.hooks // []) | .[]? |
+    select(.command) |
+    [$event, .command] | @tsv
+  ' "$SETTINGS_PATH" 2>/dev/null \
+    | while IFS=$'\t' read -r event cmd; do
+        # Pull the first absolute path from the command (the script).
+        script="$(printf '%s\n' "$cmd" | grep -oE '/[A-Za-z0-9_./~-]+\.sh' | head -1)"
+        # Expand a leading ~ that some users write into commands.
+        script="${script/#~/$HOME}"
+        if [[ -n "$script" && ! -f "$script" ]]; then
+          printf "%s\t%s\n" "$event" "$cmd" >> "$HOOKS_TMP"
+        fi
+      done
+fi
+
 # 4. Classify each active item.
 build_entries() {
   local kind="$1" listfile="$2" prefix="$3"
@@ -95,6 +122,15 @@ build_entries() {
 build_entries "mcp"   "$MCP_TMP"    "mcp:"   >> "$ENTRIES_TMP"
 build_entries "skill" "$SKILLS_TMP" "skill:" >> "$ENTRIES_TMP"
 
+# Broken hooks: emit one entry per line. Status is always "broken" (file missing).
+if [[ -f "$HOOKS_TMP" ]]; then
+  while IFS=$'\t' read -r event cmd; do
+    name="$event: $(printf '%s' "$cmd" | sed 's|.*/||' | sed 's| .*||')"
+    jq -cn --arg kind "hook" --arg name "$name" --arg last "" --arg status "broken" \
+      '{kind:$kind, name:$name, last_used:$last, status:$status}' >> "$ENTRIES_TMP"
+  done < "$HOOKS_TMP"
+fi
+
 # 5. Write outputs.
 jq -cn \
   --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -103,7 +139,7 @@ jq -cn \
   --slurpfile entries <(jq -s '.' "$ENTRIES_TMP") \
   '{generated_at:$generated_at, threshold_days:$days, cutoff:$cutoff,
     entries:$entries[0],
-    stale: ($entries[0] | map(select(.status=="stale" or .status=="never")))}' \
+    stale: ($entries[0] | map(select(.status=="stale" or .status=="never" or .status=="broken")))}' \
   > "$OUT_JSON"
 
 STALE_COUNT="$(jq '.stale | length' "$OUT_JSON")"
