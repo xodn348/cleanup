@@ -1,5 +1,5 @@
 #!/bin/bash
-# claude-tool-audit — proactive stale-tool alert.
+# cleanup — proactive stale-tool alert.
 # SessionStart hook. Emits hookSpecificOutput.additionalContext only when
 #   (a) grace period elapsed since usage tracking began,
 #   (b) at least one stale tool exists,

@@ -1,4 +1,4 @@
-# claude-tool-audit
+# cleanup
 
 Passively tracks which Claude Code skills and MCP servers you actually use,
 then proactively recommends — but never deletes — anything that has gone
@@ -55,3 +55,49 @@ cat data/stale-tools.md
 ```
 
 Or in Claude Code: `/cleanup`.
+
+## Install
+
+Clone, then wire into Claude Code with two hooks and a skill symlink.
+
+```bash
+git clone https://github.com/xodn348/cleanup.git ~/code/cleanup
+chmod +x ~/code/cleanup/{audit-stale-tools,stale-tools-alert,cleanup-logger}.sh
+
+# Mount the /cleanup skill
+ln -sfn ~/code/cleanup/skill ~/.claude/skills/cleanup
+```
+
+Then add these two hook entries to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "hooks": [{
+        "type": "command",
+        "command": "bash ~/code/cleanup/cleanup-logger.sh"
+      }]
+    }],
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "bash ~/code/cleanup/stale-tools-alert.sh"
+      }]
+    }]
+  }
+}
+```
+
+The first SessionStart marks the tracking start time. After 30 days of grace,
+new sessions get a one-line `additionalContext` nudge if any active tool has
+been untouched, then a 7-day cooldown until the next nudge. Run `/cleanup` in
+Claude Code anytime to act on the report.
+
+## Environment overrides
+
+| Var | Default | Purpose |
+|---|---|---|
+| `CLEANUP_EVENTS` | `~/code/cleanup/data/events.ndjson` | Where the logger appends |
+| `CLAUDE_AUDIT_DAYS` | `30` | Grace + staleness threshold |
+| `CLAUDE_AUDIT_COOLDOWN_DAYS` | `7` | Min days between auto-nudges |

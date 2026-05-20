@@ -1,5 +1,5 @@
 #!/bin/bash
-# claude-tool-audit — stale tool auditor.
+# cleanup — stale tool auditor.
 # Reads Claude Code tool-usage events (kind=post_tool) from a JSONL bus,
 # enumerates currently active MCPs and user skills, and writes a report
 # of which have not been used recently. Never deletes anything.
