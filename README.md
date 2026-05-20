@@ -19,32 +19,33 @@ you which tools have gone quiet for over a month. You decide what to keep.
 
 ## Quick start
 
+One command — clones, installs, and wires the two hooks for you:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xodn348/cleanup/main/install.sh | bash
+```
+
+Or, equivalently:
+
 ```bash
 git clone https://github.com/xodn348/cleanup.git ~/code/cleanup
-chmod +x ~/code/cleanup/*.sh
-ln -sfn ~/code/cleanup/skill ~/.claude/skills/cleanup
+bash ~/code/cleanup/install.sh
 ```
 
-Add these two hooks to `~/.claude/settings.json`:
+The installer is idempotent — safe to re-run, and it skips hooks that are
+already present in your `~/.claude/settings.json`.
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "hooks": [{ "type": "command",
-                  "command": "bash ~/code/cleanup/cleanup-logger.sh" }]
-    }],
-    "SessionStart": [{
-      "hooks": [{ "type": "command",
-                  "command": "bash ~/code/cleanup/stale-tools-alert.sh" }]
-    }]
-  }
-}
-```
+### Hand it to your coding agent
+
+Paste this into Claude Code, Cursor, Codex, etc:
+
+> Install **cleanup** from https://github.com/xodn348/cleanup — run its
+> `install.sh`. After installing, verify the two hooks landed in
+> `~/.claude/settings.json` and that `~/.claude/skills/cleanup` is a symlink.
 
 Start a new Claude Code session — that's it. After 30 days of normal use,
-Claude will start surfacing stale tools at the top of new sessions and
-suggest `/cleanup`. You can also run it manually any time:
+Claude will surface stale tools at the top of new sessions and suggest
+`/cleanup`. You can also run the report manually any time:
 
 ```bash
 bash ~/code/cleanup/audit-stale-tools.sh
